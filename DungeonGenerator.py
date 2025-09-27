@@ -1,5 +1,23 @@
 import random, math, os
 from Display import *
+
+INK_BROWN = (80, 40, 20)
+
+
+def draw_wall_sketch(surface, x1, y1, x2, y2):
+    """Draw a slightly irregular brown line for walls."""
+    import random
+
+    offset = lambda: random.randint(-1, 1)
+    pygame.draw.line(
+        surface,
+        INK_BROWN,
+        (x1 + offset(), y1 + offset()),
+        (x2 + offset(), y2 + offset()),
+        2,
+    )
+
+
 game = True
 room_type = ['Hall', 'Cave', 'Bedroom', 'Dining Room', 'Cellar']
 
@@ -34,25 +52,16 @@ class Wall:
         self.y2 = y2
 
     def draw_wall1(self):
-        #pygame.draw.line(display_surface, white, [self.x1, self.y1], [self.x2, self.y2])
-        for x in range(0, self.x2 - self.x1 + 2 * tilesize, tilesize):
-            index = random.randint(0, 15)
-            greytiles.draw(display_surface, index, self.x1 + x - tilesize, self.y1 - tilesize)
+        draw_wall_sketch(display_surface, self.x1, self.y1, self.x2, self.y2)
 
     def draw_wall2(self):
-        for y in range(0, self.y2 - self.y1 + 2 * tilesize, tilesize):
-            index = random.randint(0, 15)
-            greytiles.draw(display_surface, index, self.x1, self.y1 + y - tilesize)
+        draw_wall_sketch(display_surface, self.x1, self.y1, self.x2, self.y2)
 
     def draw_wall3(self):
-        for x in range(0, self.x1 - self.x2 , tilesize):
-            index = random.randint(0, 15)
-            greytiles.draw(display_surface, index, self.x2 + x, self.y2)
+        draw_wall_sketch(display_surface, self.x1, self.y1, self.x2, self.y2)
 
     def draw_wall4(self):
-        for y in range(0, self.y1 - self.y2 + tilesize, tilesize):
-            index = random.randint(0, 15)
-            greytiles.draw(display_surface, index, self.x2 - tilesize, self.y2 + y)
+        draw_wall_sketch(display_surface, self.x1, self.y1, self.x2, self.y2)
 
 
     def draw_red(self):
