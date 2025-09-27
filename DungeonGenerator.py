@@ -1,4 +1,7 @@
-import random, math, os
+import datetime
+import math
+import os
+import random
 from Display import *
 
 INK_BROWN = (80, 40, 20)
@@ -16,6 +19,9 @@ for name, path in icon_paths.items():
         icons[name] = pygame.image.load(path).convert_alpha()
     else:
         icons[name] = None
+
+
+USE_TIMESTAMP_EXPORT = True
 
 
 def draw_wall_sketch(surface, x1, y1, x2, y2):
@@ -294,6 +300,14 @@ def main():
             #pygame.time.wait(1)
             #x, y = new_x, new_y
         pygame.display.flip()
+        # Save the current dungeon view as PNG
+        if USE_TIMESTAMP_EXPORT:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = f"dungeon_parchment_{timestamp}.png"
+        else:
+            output_file = "dungeon_parchment.png"
+        pygame.image.save(display_surface, output_file)
+        print(f"Saved dungeon map as {output_file}")
         pygame.time.wait(3000)
         for event in pygame.event.get():
             if event.type == KEYDOWN and event.key == K_ESCAPE:
