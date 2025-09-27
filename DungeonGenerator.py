@@ -1,7 +1,14 @@
-import random, math
+import random, math, os
 from Display import *
 game = True
 room_type = ['Hall', 'Cave', 'Bedroom', 'Dining Room', 'Cellar']
+
+parchment_path = os.path.join("images", "textures", "parchment.jpg")
+if os.path.exists(parchment_path):
+    parchment = pygame.image.load(parchment_path).convert()
+    parchment = pygame.transform.scale(parchment, (X, Y))
+else:
+    parchment = None
 
 class Direction2D:
 
@@ -215,7 +222,10 @@ def main():
             greytiles.draw(display_surface, index, new_x, new_y)
             print(index)'''
 
-        display_surface.fill(black)
+        if parchment:
+            display_surface.blit(parchment, (0, 0))
+        else:
+            display_surface.fill((222, 184, 135))
         dungeon.draw_dungeon()
 
             #pygame.display.flip()
