@@ -2,6 +2,7 @@ import random, math, os
 from Display import *
 
 INK_BROWN = (80, 40, 20)
+ROOM_FILL = (210, 180, 140, 80)  # light beige with transparency
 
 
 def draw_wall_sketch(surface, x1, y1, x2, y2):
@@ -16,6 +17,19 @@ def draw_wall_sketch(surface, x1, y1, x2, y2):
         (x2 + offset(), y2 + offset()),
         2,
     )
+
+
+def draw_room_fill(surface, room):
+    """Fill a room with a translucent beige color for a watercolor effect."""
+    rect = pygame.Rect(
+        room.x * tilesize,
+        room.y * tilesize,
+        room.width * tilesize,
+        room.height * tilesize,
+    )
+    s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    s.fill(ROOM_FILL)
+    surface.blit(s, rect.topleft)
 
 
 game = True
@@ -129,6 +143,7 @@ class Room:
 
 
     def draw(self):
+        draw_room_fill(display_surface, self)
         self.walls[0].draw_wall1()
         self.walls[1].draw_wall2()
         self.walls[2].draw_wall3()
