@@ -4,6 +4,19 @@ from Display import *
 INK_BROWN = (80, 40, 20)
 ROOM_FILL = (210, 180, 140, 80)  # light beige with transparency
 
+icon_paths = {
+    "chest": os.path.join("images", "icons", "chest.png"),
+    "trap": os.path.join("images", "icons", "trap.png"),
+    "torch": os.path.join("images", "icons", "torch.png"),
+    "monster": os.path.join("images", "icons", "monster.png"),
+}
+icons = {}
+for name, path in icon_paths.items():
+    if os.path.exists(path):
+        icons[name] = pygame.image.load(path).convert_alpha()
+    else:
+        icons[name] = None
+
 
 def draw_wall_sketch(surface, x1, y1, x2, y2):
     """Draw a slightly irregular brown line for walls."""
@@ -30,6 +43,30 @@ def draw_room_fill(surface, room):
     s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     s.fill(ROOM_FILL)
     surface.blit(s, rect.topleft)
+
+
+def draw_room_icons(surface, room):
+    """Randomly place decorative icons in rooms if assets are available."""
+    import random
+
+    choices = []
+    if icons["chest"]:
+        choices.append("chest")
+    if icons["trap"]:
+        choices.append("trap")
+    if icons["torch"]:
+        choices.append("torch")
+    if icons["monster"]:
+        choices.append("monster")
+
+    if choices:
+        selected = random.choice(choices)
+        icon = icons[selected]
+        if icon:
+            # place roughly at the center of the room
+            x = room.center_x - icon.get_width() // 2
+            y = room.center_y - icon.get_height() // 2
+            surface.blit(icon, (x, y))
 
 
 game = True
@@ -148,6 +185,7 @@ class Room:
         self.walls[1].draw_wall2()
         self.walls[2].draw_wall3()
         self.walls[3].draw_wall4()
+        draw_room_icons(display_surface, self)
 
     def draw_red(self):
         for wall in self.walls:
