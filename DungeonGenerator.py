@@ -750,12 +750,18 @@ def surface_to_png_bytes(surface: pygame.Surface) -> bytes:
 def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> DungeonResult:
     ensure_pygame_ready()
     rng = random.Random(settings.seed)
-    surface = pygame.Surface((settings.canvas_width, settings.canvas_height)).convert_alpha()
+
+    # ⚠️ Correction : surface en RGB, remplie en blanc avant tout dessin
+    surface = pygame.Surface((settings.canvas_width, settings.canvas_height)).convert()
+    surface.fill((255, 255, 255))
+
+    # Fond parchemin + textures
     draw_background(surface, settings, rng)
     hatch_background(surface, settings)
     apply_floor_texture(surface, settings, rng)
     draw_grid(surface, settings)
 
+    # Génération des salles
     rooms = generate_rooms(settings, rng)
     centers = [room.center for room in rooms]
     edges = prim_mst(centers)
@@ -766,31 +772,18 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
         corridor_inners = corridor_between(surface, settings, rng, rooms[i], rooms[j])
         corridor_floors.extend(corridor_inners)
         place_doors_for_connection(
-            surface,
-            rooms[i],
-            corridor_inners,
-            room_contents,
-            i + 1,
-            symbols,
-            settings.door_distribution,
-            rng,
-            settings,
+            surface, rooms[i], corridor_inners, room_contents, i + 1,
+            symbols, settings.door_distribution, rng, settings,
         )
         place_doors_for_connection(
-            surface,
-            rooms[j],
-            corridor_inners,
-            room_contents,
-            j + 1,
-            symbols,
-            settings.door_distribution,
-            rng,
-            settings,
+            surface, rooms[j], corridor_inners, room_contents, j + 1,
+            symbols, settings.door_distribution, rng, settings,
         )
 
     for idx, room in enumerate(rooms, start=1):
         draw_room(surface, room, idx, settings, rng)
 
+    # Escaliers
     if rooms:
         if len(rooms) >= 2:
             up_idx, down_idx = rng.sample(range(len(rooms)), 2)
@@ -804,7 +797,11 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
             room_contents[1].append("stairs up")
 
     decorate_rooms(surface, settings, rng, rooms, room_contents, symbols)
+
+    # Vignette
     apply_vignette(surface, settings)
+
+    # Légende
     legend_lines = draw_legend(surface, settings, room_contents)
     filename = "dungeon.png"
     if settings.export_with_timestamp:
@@ -904,7 +901,7 @@ def main() -> None:
         }
     )
 
-    parchment_path = "images/parchment.jpg" if parchment_enabled else None
+    parchment_path = "images/parchment.jpg" #if parchment_enabled else None
 
     settings = DungeonSettings(
         canvas_width=int(canvas_width),
