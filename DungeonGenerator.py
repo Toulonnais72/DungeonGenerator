@@ -145,19 +145,25 @@ def weighted_choice(rng: random.Random, weighted_items: Sequence[Tuple[str, floa
 
 def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
     width, height = surface.get_size()
+
+    # 1. Crée une base neutre
+    surface.fill(BACKGROUND_COLOR)
+
+    # 2. Charge et applique le parchemin si dispo
     if settings.parchment_path and os.path.exists(settings.parchment_path):
         texture = pygame.image.load(settings.parchment_path).convert()
         texture = pygame.transform.smoothscale(texture, (width, height))
-        surface.blit(texture, (0, 0))
-    else:
-        surface.fill(BACKGROUND_COLOR)
 
+        # 🔑 BLEND_RGBA_MULT au lieu de blit direct → on garde le fond parcheminé
+        surface.blit(texture, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+    # 3. Ajoute un grain léger
     grain_tile = pygame.Surface((128, 128), pygame.SRCALPHA)
-    for _ in range(420):
+    for _ in range(300):  # un peu moins pour laisser respirer le parchemin
         gx = rng.randrange(128)
         gy = rng.randrange(128)
-        tint = rng.randint(-16, 16)
-        alpha = rng.randint(18, 36)
+        tint = rng.randint(-12, 12)
+        alpha = rng.randint(12, 28)  # plus transparent
         color = (
             max(120, min(255, BACKGROUND_COLOR[0] + tint)),
             max(108, min(255, BACKGROUND_COLOR[1] + tint)),
@@ -169,15 +175,16 @@ def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: ran
         for x in range(0, width, 128):
             surface.blit(grain_tile, (x, y), special_flags=pygame.BLEND_RGBA_MULT)
 
+    # 4. Ajoute quelques taches (mais plus transparentes)
     blot_surface = pygame.Surface((width, height), pygame.SRCALPHA)
     max_radius = int(max(width, height) * 0.22)
     min_radius = max(settings.tilesize * 5, int(max_radius * 0.35))
-    for _ in range(22):
+    for _ in range(15):  # un peu moins que 22
         radius = rng.randint(min_radius, max_radius)
         cx = rng.randint(-radius, width + radius)
         cy = rng.randint(-radius, height + radius)
-        alpha = rng.randint(20, 45)
-        tint = rng.randint(-14, 14)
+        alpha = rng.randint(12, 28)  # plus discret
+        tint = rng.randint(-10, 10)
         color = (
             max(120, min(255, BACKGROUND_COLOR[0] + tint)),
             max(108, min(255, BACKGROUND_COLOR[1] + tint)),
@@ -212,9 +219,9 @@ def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng:
             tint = rng.randint(-10, 10)
             alpha = rng.randint(8, 16)
             color = (
-                max(140, min(255, BACKGROUND_COLOR[0] + tint)),
-                max(128, min(255, BACKGROUND_COLOR[1] + tint)),
-                max(108, min(255, BACKGROUND_COLOR[2] + tint)),
+                max(70, min(255, BACKGROUND_COLOR[0] + tint)),
+                max(64, min(255, BACKGROUND_COLOR[1] + tint)),
+                max(55, min(255, BACKGROUND_COLOR[2] + tint)),
                 alpha,
             )
             pygame.draw.rect(texture, color, pygame.Rect(x, y, cell, cell))
