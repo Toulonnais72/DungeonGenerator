@@ -13,13 +13,16 @@ import helpers as hp
 
 from symbols import SymbolLibrary
 
-INK_BROWN = (92, 68, 42)
-GRID_COLOR = (212, 196, 164)
-ROOM_FILL = (238, 226, 204)
+# Couleurs mises à jour
+INK_BROWN = (50, 35, 20)  # brun très foncé
+ROOM_FILL = (238, 226, 204, 160)  # beige clair, alpha réduit
+GRID_COLOR = (180, 160, 120)
 ROOM_GRID_COLOR = (204, 182, 148)
 HATCH_COLOR = (168, 148, 118)
 BACKGROUND_COLOR = (236, 219, 191)
 VIGNETTE_COLOR = (150, 128, 100)
+CORRIDOR_FILL = (225, 215, 190, 140)  # beige clair, alpha réduit
+
 
 DOOR_LABELS = {
     "door": "door",
@@ -147,107 +150,116 @@ def weighted_choice(rng: random.Random, weighted_items: Sequence[Tuple[str, floa
 def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
     width, height = surface.get_size()
 
-    # Remplir en blanc pour éviter la transparence
-    surface.fill((255, 255, 255))
-
+    # 1) Parchemin en base (blit normal)
     if settings.parchment_path and os.path.exists(settings.parchment_path):
-        texture = pygame.image.load(settings.parchment_path).convert()
-        texture = pygame.transform.smoothscale(texture, (width, height))
-        surface.blit(texture, (0, 0))  # blit direct, pas de MULT
+        tex = pygame.image.load(settings.parchment_path).convert()
+        tex = pygame.transform.smoothscale(tex, (width, height))
+        surface.blit(tex, (0, 0))  # ← pas de special_flags
     else:
         surface.fill(BACKGROUND_COLOR)
+
+    # 2) Grain léger (alpha-blend)
+    tile = pygame.Surface((128, 128), pygame.SRCALPHA)
+    for _ in range(220):
+        gx, gy = rng.randrange(128), rng.randrange(128)
+        tint = rng.randint(-10, 10)
+        alpha = rng.randint(10, 22)
+        color = (
+            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
+            max( 90, min(255, BACKGROUND_COLOR[1] + tint)),
+            max( 80, min(255, BACKGROUND_COLOR[2] + tint)),
+            alpha,
+        )
+        tile.set_at((gx, gy), color)
+    for y in range(0, height, 128):
+        for x in range(0, width, 128):
+            surface.blit(tile, (x, y))  # ← alpha-blend classique
+
+    # 3) Taches diffuses (alpha-blend)
+    blot = pygame.Surface((width, height), pygame.SRCALPHA)
+    max_r = int(max(width, height) * 0.18)
+    min_r = max(settings.tilesize * 5, int(max_r * 0.3))
+    for _ in range(10):
+        r = rng.randint(min_r, max_r)
+        cx = rng.randint(-r, width + r)
+        cy = rng.randint(-r, height + r)
+        alpha = rng.randint(10, 20)
+        tint = rng.randint(-8, 8)
+        col = (
+            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
+            max( 90, min(255, BACKGROUND_COLOR[1] + tint)),
+            max( 80, min(255, BACKGROUND_COLOR[2] + tint)),
+            alpha,
+        )
+        pygame.draw.circle(blot, col, (cx, cy), r)
+    surface.blit(blot, (0, 0))  # ← alpha-blend
+
 
 
 def hatch_background(surface: pygame.Surface, settings: DungeonSettings) -> None:
     width, height = surface.get_size()
     step = max(8, settings.tilesize)
     tile_size = step * 2
-    hatch_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
+    hatch = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
 
-    # Couleur chaude, très transparente
     color = (*HATCH_COLOR, 25)
     stride = max(2, step // 2)
-
-    for offset in range(-tile_size, tile_size * 2, stride):
-        pygame.draw.line(hatch_tile, color, (offset, 0), (0, offset), 1)
-        pygame.draw.line(hatch_tile, color, (tile_size, offset), (offset, tile_size), 1)
+    for off in range(-tile_size, tile_size * 2, stride):
+        pygame.draw.line(hatch, color, (off, 0), (0, off), 1)
+        pygame.draw.line(hatch, color, (tile_size, off), (off, tile_size), 1)
 
     for y in range(0, height, tile_size):
         for x in range(0, width, tile_size):
-            surface.blit(hatch_tile, (x, y), special_flags=pygame.BLEND_RGBA_MULT)
-
-
-
-def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
-    width, height = surface.get_size()
-    texture = pygame.Surface((width, height), pygame.SRCALPHA)
-    cell = max(12, settings.tilesize * 2)
-
-    for y in range(0, height + cell, cell):
-        for x in range(0, width + cell, cell):
-            tint = rng.randint(-8, 8)
-            alpha = rng.randint(6, 12)  # plus discret qu’avant
-            color = (
-                max(70, min(255, BACKGROUND_COLOR[0] + tint)),
-                max(64, min(255, BACKGROUND_COLOR[1] + tint)),
-                max(55, min(255, BACKGROUND_COLOR[2] + tint)),
-                alpha,
-            )
-            pygame.draw.rect(texture, color, pygame.Rect(x, y, cell, cell))
-
-    surface.blit(texture, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-def apply_vignette(surface: pygame.Surface, settings: DungeonSettings) -> None:
-    width, height = surface.get_size()
-    base = 256
-    gradient = pygame.Surface((base, base), pygame.SRCALPHA)
-    center = base / 2
-    max_dist = math.hypot(center, center)
-
-    # 🎨 couleur chaude pour les bords
-    warm_color = (210, 110, 55)
-
-    for y in range(base):
-        for x in range(base):
-            dist = math.hypot(x - center, y - center)
-            norm = min(1.0, dist / max_dist)
-
-            # Alpha fort aux bords, nul au centre
-            alpha = int((norm ** 2.5) * 180 * settings.vignette_strength)
-
-            gradient.set_at((x, y), (*warm_color, alpha))
-
-    vignette = pygame.transform.smoothscale(gradient, (width, height))
-
-    # 🔑 utiliser BLEND_RGBA_SUB pour assombrir au lieu d'effacer
-    surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
-    width, height = surface.get_size()
-    ts = max(4, settings.tilesize)
-    grid_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-    color = (*GRID_COLOR, 70)
-    for xpix in range(0, width + 1, ts):
-        pygame.draw.line(grid_surface, color, (xpix, 0), (xpix, height))
-    for ypix in range(0, height + 1, ts):
-        pygame.draw.line(grid_surface, color, (0, ypix), (width, ypix))
-    surface.blit(grid_surface, (0, 0))
+            surface.blit(hatch, (x, y))  # ← alpha-blend
 
 def draw_room_grid(surface: pygame.Surface, rect: pygame.Rect, settings: DungeonSettings) -> None:
     ts = settings.tilesize
     if rect.width <= ts or rect.height <= ts:
         return
-
-    grid_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-
-    # Couleur un peu plus claire que la grille générale
+    grid = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     color = (200, 175, 140, 40)
+    for x in range(ts, rect.width, ts):
+        pygame.draw.line(grid, color, (x, 0), (x, rect.height))
+    for y in range(ts, rect.height, ts):
+        pygame.draw.line(grid, color, (0, y), (rect.width, y))
+    surface.blit(grid, rect.topleft)  # ← alpha-blend
 
-    for xpix in range(ts, rect.width, ts):
-        pygame.draw.line(grid_surface, color, (xpix, 0), (xpix, rect.height))
-    for ypix in range(ts, rect.height, ts):
-        pygame.draw.line(grid_surface, color, (0, ypix), (rect.width, ypix))
 
-    # Fusion douce avec le parchemin
-    surface.blit(grid_surface, rect.topleft, special_flags=pygame.BLEND_RGBA_MULT)
+
+def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
+    width, height = surface.get_size()
+    tex = pygame.Surface((width, height), pygame.SRCALPHA)
+    cell = max(12, settings.tilesize * 2)
+    for y in range(0, height + cell, cell):
+        for x in range(0, width + cell, cell):
+            tint = rng.randint(-8, 8)
+            alpha = rng.randint(8, 16)
+            col = (
+                max(70, min(255, BACKGROUND_COLOR[0] + tint)),
+                max(64, min(255, BACKGROUND_COLOR[1] + tint)),
+                max(55, min(255, BACKGROUND_COLOR[2] + tint)),
+                alpha,
+            )
+            pygame.draw.rect(tex, col, pygame.Rect(x, y, cell, cell))
+    surface.blit(tex, (0, 0))  # ← alpha-blend
+
+
+def apply_vignette(surface: pygame.Surface, settings: DungeonSettings) -> None:
+    width, height = surface.get_size()
+    base = 256
+    g = pygame.Surface((base, base), pygame.SRCALPHA)
+    c = base / 2
+    mx = math.hypot(c, c)
+    warm = (210, 110, 55)
+    for y in range(base):
+        for x in range(base):
+            d = math.hypot(x - c, y - c)
+            n = min(1.0, d / mx)
+            alpha = int((n**2.5) * 180 * settings.vignette_strength)
+            g.set_at((x, y), (*warm, alpha))
+    v = pygame.transform.smoothscale(g, (width, height))
+    surface.blit(v, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
 
 
 
@@ -275,18 +287,42 @@ def apply_floor_shading(surface: pygame.Surface, rect: pygame.Rect, rng: random.
 def draw_grid(surface: pygame.Surface, settings: DungeonSettings) -> None:
     width, height = surface.get_size()
     ts = max(4, settings.tilesize)
-    grid_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-    # Couleur chaude + alpha réduit
+    grid = pygame.Surface((width, height), pygame.SRCALPHA)
     color = (180, 160, 120, 35)
-    for xpix in range(0, width + 1, ts):
-        pygame.draw.line(grid_surface, color, (xpix, 0), (xpix, height))
-    for ypix in range(0, height + 1, ts):
-        pygame.draw.line(grid_surface, color, (0, ypix), (width, ypix))
-    # Fusion avec le parchemin
-    surface.blit(grid_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    for x in range(0, width + 1, ts):
+        pygame.draw.line(grid, color, (x, 0), (x, height))
+    for y in range(0, height + 1, ts):
+        pygame.draw.line(grid, color, (0, y), (width, y))
+    surface.blit(grid, (0, 0))  # ← alpha-blend
 
 
-def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int], settings: DungeonSettings, rng: random.Random) -> None:
+
+def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int],
+              settings: DungeonSettings, rng: random.Random) -> None:
+    wall = wall_thickness(settings)
+    base_rect = rect.copy()
+
+    # Salle semi-transparente
+    room_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    pygame.draw.rect(room_surface, ROOM_FILL, room_surface.get_rect())
+    surface.blit(room_surface, rect.topleft)  # alpha-blend
+
+    # Ombres / textures intérieures
+    inner = base_rect.inflate(-2 * wall, -2 * wall)
+    if inner.width > 0 and inner.height > 0:
+        apply_floor_shading(surface, inner, rng, intensity=0.6)
+        draw_room_grid(surface, inner, settings)
+
+    # Contour sombre
+    pygame.draw.rect(surface, INK_BROWN, base_rect, wall)
+
+    # Numéro de salle
+    if number is not None and inner.width > 0 and inner.height > 0:
+        font = FONT_STORE.get(16, bold=False)
+        img = font.render(str(number), True, INK_BROWN)
+        surface.blit(img, (inner.centerx - img.get_width() // 2,
+                           inner.centery - img.get_height() // 2))
+
     wall = wall_thickness(settings)
     base_rect = rect.copy()
     pygame.draw.rect(surface, ROOM_FILL, base_rect)
@@ -297,25 +333,37 @@ def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int],
         inner = base_rect.copy()
     apply_floor_shading(surface, inner, rng, intensity=0.6)
     draw_room_grid(surface, inner, settings)
-    pygame.draw.rect(surface, INK_BROWN, base_rect, wall)
+    pygame.draw.rect(surface, ROOM_FILL, base_rect)  # semi-transparent
     if number is not None and inner.width > 0 and inner.height > 0:
         font = FONT_STORE.get(16, bold=False)
         img = font.render(str(number), True, INK_BROWN)
         surface.blit(img, (inner.centerx - img.get_width() // 2, inner.centery - img.get_height() // 2))
 
 
-def draw_corridor_rect(surface: pygame.Surface, rect: pygame.Rect, settings: DungeonSettings, rng: random.Random) -> pygame.Rect:
+def draw_corridor_rect(surface: pygame.Surface, rect: pygame.Rect,
+                       settings: DungeonSettings, rng: random.Random) -> pygame.Rect:
     wall = max(2, wall_thickness(settings) - 2)
-    pygame.draw.rect(surface, ROOM_FILL, rect)
+
+    # Couloir semi-transparent
+    corridor_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    pygame.draw.rect(corridor_surface, CORRIDOR_FILL, corridor_surface.get_rect())
+    surface.blit(corridor_surface, rect.topleft)  # alpha-blend
+
+    # Zone intérieure pour texture/shading
     inner = rect.inflate(-2 * wall, -2 * wall)
     if inner.width <= 0 or inner.height <= 0:
         inner = rect.inflate(-wall, -wall)
     if inner.width <= 0 or inner.height <= 0:
         inner = rect.copy()
+
     apply_floor_shading(surface, inner, rng, intensity=0.45)
     draw_room_grid(surface, inner, settings)
+
+    # Contour sombre
     pygame.draw.rect(surface, INK_BROWN, rect, wall)
+
     return inner
+
 
 
 def rects_intersect(a: pygame.Rect, b: pygame.Rect, spacing_px: int = 0) -> bool:
@@ -655,7 +703,8 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
 
     # ⚠️ Correction : surface en RGB, remplie en blanc avant tout dessin
     surface = pygame.Surface((settings.canvas_width, settings.canvas_height)).convert()
-    surface.fill((255, 255, 255))
+    surface.fill((255, 255, 255))  # base blanche
+
 
     # Fond parchemin + textures
     draw_background(surface, settings, rng)
