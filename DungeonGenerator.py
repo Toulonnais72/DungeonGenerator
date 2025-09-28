@@ -48,6 +48,7 @@ class DungeonSettings:
     canvas_width: int = 1600
     canvas_height: int = 900
     tilesize: int = 15
+    vignette_strength: float = 0.25
     n_rooms: int = 28
     min_room_width: int = 6
     max_room_width: int = 18
@@ -704,9 +705,8 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
             room_contents[1].append("stairs up")
 
     decorate_rooms(surface, settings, rng, rooms, room_contents, symbols)
-    apply_vignette(surface, strength=vignette_str)
+    apply_vignette(surface, strength=settings.vignette_strength)
     legend_lines = draw_legend(surface, settings, room_contents)
-
     filename = "dungeon.png"
     if settings.export_with_timestamp:
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -811,6 +811,7 @@ def main() -> None:
         canvas_width=int(canvas_width),
         canvas_height=int(canvas_height),
         tilesize=int(tilesize),
+        vignette_strength=float(vignette_str),
         n_rooms=int(n_rooms),
         min_room_width=int(min_room_width),
         max_room_width=int(max_room_width),
