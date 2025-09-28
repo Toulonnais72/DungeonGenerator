@@ -220,7 +220,7 @@ def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng:
     surface.blit(texture, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
 
-def apply_vignette(surface: pygame.Surface, strength: float = 0.55) -> None:
+def apply_vignette(surface: pygame.Surface, strength: float = 0.05) -> None:
     width, height = surface.get_size()
     base = 256
     gradient = pygame.Surface((base, base), pygame.SRCALPHA)
@@ -704,7 +704,7 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
             room_contents[1].append("stairs up")
 
     decorate_rooms(surface, settings, rng, rooms, room_contents, symbols)
-    apply_vignette(surface)
+    apply_vignette(surface, strength=vignette_str)
     legend_lines = draw_legend(surface, settings, room_contents)
 
     filename = "dungeon.png"
@@ -742,6 +742,8 @@ def main() -> None:
     canvas_width = st.sidebar.number_input("Canvas width (px)", min_value=600, max_value=3000, value=1400, step=50)
     canvas_height = st.sidebar.number_input("Canvas height (px)", min_value=600, max_value=3000, value=900, step=50)
     tilesize = st.sidebar.slider("Tile size (px)", min_value=8, max_value=40, value=15)
+    vignette_str = st.sidebar.slider("Vignette strength", 0.0, 1.0, 0.35, 0.05)
+
 
     st.sidebar.header("Rooms")
     n_rooms = st.sidebar.slider("Number of rooms", min_value=5, max_value=80, value=28)
