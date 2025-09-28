@@ -70,7 +70,7 @@ class DungeonSettings:
     trap_room_ratio: float = 0.12
     treasure_room_ratio: float = 0.1
     column_room_ratio: float = 0.18
-    parchment_path: Optional[str] = "images/textures/parchment.jpg"
+    parchment_path: Optional[str] = "images/parchment.jpg"
     image_folder: str = "images"
     export_with_timestamp: bool = True
     write_to_disk: bool = False
@@ -193,7 +193,7 @@ def hatch_background(surface: pygame.Surface, settings: DungeonSettings) -> None
     step = max(8, settings.tilesize)
     tile_size = step * 2
     hatch_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
-    color = (*HATCH_COLOR, 60)
+    color = (*HATCH_COLOR, 30)
     stride = max(2, step // 2)
     for offset in range(-tile_size, tile_size * 2, stride):
         pygame.draw.line(hatch_tile, color, (offset, 0), (0, offset), 1)
@@ -210,7 +210,7 @@ def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng:
     for y in range(0, height + cell, cell):
         for x in range(0, width + cell, cell):
             tint = rng.randint(-10, 10)
-            alpha = rng.randint(18, 32)
+            alpha = rng.randint(8, 16)
             color = (
                 max(140, min(255, BACKGROUND_COLOR[0] + tint)),
                 max(128, min(255, BACKGROUND_COLOR[1] + tint)),
@@ -221,20 +221,32 @@ def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng:
     surface.blit(texture, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
 
-def apply_vignette(surface: pygame.Surface, strength: float = 0.05) -> None:
+def apply_vignette(surface: pygame.Surface, strength: float = 0.3) -> None:
     width, height = surface.get_size()
     base = 256
     gradient = pygame.Surface((base, base), pygame.SRCALPHA)
     center = base / 2
     max_dist = math.hypot(center, center)
+
+    # 🎨 couleur chaude pour les bords
+    warm_color = (210, 110, 55)
+
     for y in range(base):
         for x in range(base):
             dist = math.hypot(x - center, y - center)
             norm = min(1.0, dist / max_dist)
-            alpha = int((norm ** 1.8) * 255 * strength)
-            gradient.set_at((x, y), (*VIGNETTE_COLOR, alpha))
+
+            # Alpha fort aux bords, nul au centre
+            alpha = int((norm ** 2.5) * 180 * strength)
+
+            gradient.set_at((x, y), (*warm_color, alpha))
+
     vignette = pygame.transform.smoothscale(gradient, (width, height))
-    surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+    # 🔑 utiliser BLEND_RGBA_SUB pour assombrir au lieu d'effacer
+    surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
+
 
 
 
@@ -742,7 +754,7 @@ def main() -> None:
     canvas_width = st.sidebar.number_input("Canvas width (px)", min_value=600, max_value=3000, value=1400, step=50)
     canvas_height = st.sidebar.number_input("Canvas height (px)", min_value=600, max_value=3000, value=900, step=50)
     tilesize = st.sidebar.slider("Tile size (px)", min_value=8, max_value=40, value=15)
-    vignette_str = st.sidebar.slider("Vignette strength", 0.0, 1.0, 0.35, 0.05)
+    vignette_str = st.sidebar.slider("Vignette", 0.0, 1.0, 0.35, 0.05)
 
 
     st.sidebar.header("Rooms")
