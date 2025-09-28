@@ -143,7 +143,7 @@ def weighted_choice(rng: random.Random, weighted_items: Sequence[Tuple[str, floa
     return weighted_items[-1][0]
 
 
-def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
+
     width, height = surface.get_size()
 
     # 1. Crée une base neutre
@@ -194,30 +194,85 @@ def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: ran
         pygame.draw.circle(blot_surface, color, (cx, cy), radius)
     surface.blit(blot_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
+def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
+    width, height = surface.get_size()
+
+    # 1. Charge directement le parchemin comme base
+    if settings.parchment_path and os.path.exists(settings.parchment_path):
+        texture = pygame.image.load(settings.parchment_path).convert()
+        texture = pygame.transform.smoothscale(texture, (width, height))
+        surface.blit(texture, (0, 0))
+    else:
+        surface.fill(BACKGROUND_COLOR)
+
+    # 2. Ajoute un grain léger (MULT sur le parchemin existant)
+    grain_tile = pygame.Surface((128, 128), pygame.SRCALPHA)
+    for _ in range(250):  # un peu moins pour plus de subtilité
+        gx = rng.randrange(128)
+        gy = rng.randrange(128)
+        tint = rng.randint(-12, 12)
+        alpha = rng.randint(10, 22)  # plus discret
+        color = (
+            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
+            max(90, min(255, BACKGROUND_COLOR[1] + tint)),
+            max(80, min(255, BACKGROUND_COLOR[2] + tint)),
+            alpha,
+        )
+        grain_tile.set_at((gx, gy), color)
+    for y in range(0, height, 128):
+        for x in range(0, width, 128):
+            surface.blit(grain_tile, (x, y), special_flags=pygame.BLEND_RGBA_MULT)
+
+    # 3. Ajoute quelques taches (MULT aussi, mais plus douces)
+    blot_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    max_radius = int(max(width, height) * 0.20)
+    min_radius = max(settings.tilesize * 5, int(max_radius * 0.3))
+    for _ in range(12):  # moins de taches
+        radius = rng.randint(min_radius, max_radius)
+        cx = rng.randint(-radius, width + radius)
+        cy = rng.randint(-radius, height + radius)
+        alpha = rng.randint(10, 20)
+        tint = rng.randint(-10, 10)
+        color = (
+            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
+            max(90, min(255, BACKGROUND_COLOR[1] + tint)),
+            max(80, min(255, BACKGROUND_COLOR[2] + tint)),
+            alpha,
+        )
+        pygame.draw.circle(blot_surface, color, (cx, cy), radius)
+    surface.blit(blot_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+
 
 def hatch_background(surface: pygame.Surface, settings: DungeonSettings) -> None:
     width, height = surface.get_size()
     step = max(8, settings.tilesize)
     tile_size = step * 2
     hatch_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
-    color = (*HATCH_COLOR, 30)
+
+    # Couleur chaude, très transparente
+    color = (*HATCH_COLOR, 25)
     stride = max(2, step // 2)
+
     for offset in range(-tile_size, tile_size * 2, stride):
         pygame.draw.line(hatch_tile, color, (offset, 0), (0, offset), 1)
         pygame.draw.line(hatch_tile, color, (tile_size, offset), (offset, tile_size), 1)
+
     for y in range(0, height, tile_size):
         for x in range(0, width, tile_size):
-            surface.blit(hatch_tile, (x, y))
+            surface.blit(hatch_tile, (x, y), special_flags=pygame.BLEND_RGBA_MULT)
+
 
 
 def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
     width, height = surface.get_size()
     texture = pygame.Surface((width, height), pygame.SRCALPHA)
     cell = max(12, settings.tilesize * 2)
+
     for y in range(0, height + cell, cell):
         for x in range(0, width + cell, cell):
-            tint = rng.randint(-10, 10)
-            alpha = rng.randint(8, 16)
+            tint = rng.randint(-8, 8)
+            alpha = rng.randint(6, 12)  # plus discret qu’avant
             color = (
                 max(70, min(255, BACKGROUND_COLOR[0] + tint)),
                 max(64, min(255, BACKGROUND_COLOR[1] + tint)),
@@ -225,10 +280,10 @@ def apply_floor_texture(surface: pygame.Surface, settings: DungeonSettings, rng:
                 alpha,
             )
             pygame.draw.rect(texture, color, pygame.Rect(x, y, cell, cell))
+
     surface.blit(texture, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
-
-def apply_vignette(surface: pygame.Surface, strength: float = 0.3) -> None:
+def apply_vignette(surface: pygame.Surface, settings: DungeonSettings) -> None:
     width, height = surface.get_size()
     base = 256
     gradient = pygame.Surface((base, base), pygame.SRCALPHA)
@@ -244,7 +299,7 @@ def apply_vignette(surface: pygame.Surface, strength: float = 0.3) -> None:
             norm = min(1.0, dist / max_dist)
 
             # Alpha fort aux bords, nul au centre
-            alpha = int((norm ** 2.5) * 180 * strength)
+            alpha = int((norm ** 2.5) * 180 * settings.vignette_strength)
 
             gradient.set_at((x, y), (*warm_color, alpha))
 
@@ -252,12 +307,6 @@ def apply_vignette(surface: pygame.Surface, strength: float = 0.3) -> None:
 
     # 🔑 utiliser BLEND_RGBA_SUB pour assombrir au lieu d'effacer
     surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
-
-
-
-
-
-def draw_grid(surface: pygame.Surface, settings: DungeonSettings) -> None:
     width, height = surface.get_size()
     ts = max(4, settings.tilesize)
     grid_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -273,13 +322,23 @@ def draw_room_grid(surface: pygame.Surface, rect: pygame.Rect, settings: Dungeon
     ts = settings.tilesize
     if rect.width <= ts or rect.height <= ts:
         return
+
+    # Surface temporaire pour la grille de la salle
     grid_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-    color = (*ROOM_GRID_COLOR, 90)
+
+    # 🎨 Couleur plus chaude + alpha réduit
+    color = (190, 170, 130, 50)  # ocre clair, semi-transparent
+
+    # Tracé vertical
     for xpix in range(ts, rect.width, ts):
         pygame.draw.line(grid_surface, color, (xpix, 0), (xpix, rect.height))
+
+    # Tracé horizontal
     for ypix in range(ts, rect.height, ts):
         pygame.draw.line(grid_surface, color, (0, ypix), (rect.width, ypix))
-    surface.blit(grid_surface, rect.topleft)
+
+    # 🔑 Fusion douce avec le fond (MULT pour effet "imprimé")
+    surface.blit(grid_surface, rect.topleft, special_flags=pygame.BLEND_RGBA_MULT)
 
 
 def apply_floor_shading(surface: pygame.Surface, rect: pygame.Rect, rng: random.Random, intensity: float = 0.55) -> None:
@@ -302,6 +361,27 @@ def apply_floor_shading(surface: pygame.Surface, rect: pygame.Rect, rng: random.
         pygame.draw.circle(shading, color, (cx, cy), radius)
     surface.blit(shading, rect.topleft, special_flags=pygame.BLEND_RGBA_MULT)
 
+
+def draw_grid(surface: pygame.Surface, settings: DungeonSettings) -> None:
+    width, height = surface.get_size()
+    ts = max(4, settings.tilesize)
+
+    # Surface temporaire pour la grille
+    grid_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+    # 🎨 Couleur plus chaude + alpha réduit
+    color = (180, 160, 120, 45)  # ocre clair, très transparent
+
+    # Tracé vertical
+    for xpix in range(0, width + 1, ts):
+        pygame.draw.line(grid_surface, color, (xpix, 0), (xpix, height))
+
+    # Tracé horizontal
+    for ypix in range(0, height + 1, ts):
+        pygame.draw.line(grid_surface, color, (0, ypix), (width, ypix))
+
+    # 🔑 Fusion douce avec le fond parcheminé
+    surface.blit(grid_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
 
 def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int], settings: DungeonSettings, rng: random.Random) -> None:
@@ -724,7 +804,7 @@ def generate_dungeon(settings: DungeonSettings, symbols: SymbolLibrary) -> Dunge
             room_contents[1].append("stairs up")
 
     decorate_rooms(surface, settings, rng, rooms, room_contents, symbols)
-    apply_vignette(surface, strength=settings.vignette_strength)
+    apply_vignette(surface, settings)
     legend_lines = draw_legend(surface, settings, room_contents)
     filename = "dungeon.png"
     if settings.export_with_timestamp:
