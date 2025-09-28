@@ -24,7 +24,6 @@ VIGNETTE_COLOR   = (0, 0, 0)               # vignette noire -> SUB pour assombri
 
 
 
-
 DOOR_LABELS = {
     "door": "door",
     "locked": "locked door",
@@ -149,8 +148,6 @@ def draw_background_layer(bg: pygame.Surface, parchment_path: Optional[str]) -> 
         tex = pygame.transform.smoothscale(tex, bg.get_size())
         # blit normal : on ne multiplie pas, on ne soustrait pas → respecte les couleurs
         bg.blit(tex, (0, 0))
-
-
 
 def draw_room_fill(fills: pygame.Surface,
                    walls: pygame.Surface,
@@ -286,9 +283,48 @@ def apply_vignette_fx(fx: pygame.Surface, strength: float = 0.35) -> None:
     # On soustrait (assombrissement) → pas de dérive bleue/verte
     fx.blit(vignette, (0, 0))
 
-
-
 ##########################################################################################
+def draw_legend(surface: pygame.Surface,
+                settings: DungeonSettings,
+                room_contents: Dict[int, List[str]]) -> List[str]:
+    """
+    Dessine une légende textuelle en bas de l'image et retourne aussi la liste des lignes.
+    """
+    lines: List[str] = []
+    font = FONT_STORE.get(14, bold=False)
+
+    # Préparation du texte
+    for idx in sorted(room_contents.keys()):
+        contents = ", ".join(room_contents[idx]) if room_contents[idx] else "empty"
+        line = f"Room {idx}: {contents}"
+        lines.append(line)
+
+    if not lines:
+        return []
+
+    # Dimensions de la légende
+    margin = 8
+    line_height = font.get_height() + 2
+    legend_height = line_height * len(lines) + margin * 2
+    legend_width = max(font.size(line)[0] for line in lines) + margin * 2
+
+    w, h = surface.get_size()
+    rect = pygame.Rect(margin, h - legend_height - margin,
+                       min(legend_width, w - margin * 2), legend_height)
+
+    # Fond semi-transparent beige
+    legend_bg = pygame.Surface(rect.size, pygame.SRCALPHA)
+    legend_bg.fill((245, 235, 210, 180))
+    surface.blit(legend_bg, rect.topleft)
+
+    # Texte en brun
+    y = rect.top + margin
+    for line in lines:
+        img = font.render(line, True, (50, 35, 25))
+        surface.blit(img, (rect.left + margin, y))
+        y += line_height
+
+    return lines
 
 
 def draw_grid(surface: pygame.Surface, settings: DungeonSettings) -> None:

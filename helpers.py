@@ -1,76 +1,66 @@
+# helpers.py
 from typing import Sequence, Tuple, List
 import math
 from collections import defaultdict
 
+Point = Tuple[int, int]
 
-def _poly_length(poly: Sequence[Tuple[int, int]]) -> float:
-    """
-    Calcule la longueur totale d'une polyligne.
-    """
+def _poly_length(poly: Sequence[Point]) -> float:
+    """Longueur totale d'un polyline (somme des segments)."""
     return sum(
-        math.hypot(poly[i + 1][0] - poly[i][0], poly[i + 1][1] - poly[i][1])
+        math.hypot(poly[i+1][0] - poly[i][0], poly[i+1][1] - poly[i][1])
         for i in range(len(poly) - 1)
     )
 
-
 def _merge_wall_segments(
-    polys: Sequence[Sequence[Tuple[int, int]]],
-    snap: int
-) -> List[List[Tuple[int, int]]]:
+    polys: Sequence[Sequence[Point]], snap: int = 4
+) -> List[List[Point]]:
     """
-    Fusionne les segments voisins issus du marching squares
-    en polylignes continues (évite les petits traits isolés aux coins).
+    Fusionne des petits segments (souvent axis-alignés) en segments plus longs.
+    On 'snap' sur une grille, on regroupe horizontaux/verticaux et on fusionne
+    les intervalles qui se touchent ou se chevauchent.
     """
+    def _snap(p: Point) -> Point:
+        if snap <= 0:
+            return p
+        return (round(p[0]/snap)*snap, round(p[1]/snap)*snap)
 
-    def q(p: Tuple[int, int]) -> Tuple[int, int]:
-        # On "snape" les coordonnées sur une grille pour éviter les erreurs d'arrondi
-        return (
-            int(round(p[0] / snap) * snap),
-            int(round(p[1] / snap) * snap)
-        )
+    horiz = defaultdict(list)  # key = y, value = list[(x1, x2)]
+    vert  = defaultdict(list)  # key = x, value = list[(y1, y2)]
 
-    # Conversion en segments normalisés
-    segs = []
-    for s in polys:
-        if len(s) >= 2:
-            segs.append((q(s[0]), q(s[-1])))
-
-    # Construction de la liste d'adjacence
-    adj = defaultdict(list)  # point -> [(idx, autre_point)]
-    for i, (a, b) in enumerate(segs):
-        adj[a].append((i, b))
-        adj[b].append((i, a))
-
-    used = [False] * len(segs)
-    merged: List[List[Tuple[int, int]]] = []
-
-    for i in range(len(segs)):
-        if used[i]:
+    for seg in polys:
+        if len(seg) < 2:
             continue
+        a = _snap(seg[0]); b = _snap(seg[-1])
+        # on décide orientation selon la plus grande variation
+        if abs(a[1]-b[1]) <= abs(a[0]-b[0]):  # horizontal
+            y = a[1]
+            x1, x2 = sorted((a[0], b[0]))
+            if x1 != x2:
+                horiz[y].append((x1, x2))
+        else:                                  # vertical
+            x = a[0]
+            y1, y2 = sorted((a[1], b[1]))
+            if y1 != y2:
+                vert[x].append((y1, y2))
 
-        a, b = segs[i]
-        path = [a, b]
-        used[i] = True
+    def merge_intervals(iv: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+        if not iv:
+            return []
+        iv.sort()
+        merged = [list(iv[0])]
+        for s, e in iv[1:]:
+            if s > merged[-1][1]:
+                merged.append([s, e])
+            else:
+                merged[-1][1] = max(merged[-1][1], e)
+        return [tuple(x) for x in merged]
 
-        # On étend la polyligne à ses deux extrémités
-        extended = True
-        while extended:
-            extended = False
-            for end in (0, 1):  # 0 = tête, 1 = queue
-                node = path[0] if end == 0 else path[-1]
-                for j, other in list(adj[node]):
-                    if used[j]:
-                        continue
-                    u, v = segs[j]
-                    nxt = v if u == node else (u if v == node else None)
-                    if nxt is None:
-                        continue
-                    if end == 0:
-                        path.insert(0, nxt)
-                    else:
-                        path.append(nxt)
-                    used[j] = True
-                    extended = True
-        merged.append(path)
-
-    return merged
+    result: List[List[Point]] = []
+    for y, lst in horiz.items():
+        for x1, x2 in merge_intervals(lst):
+            result.append([(x1, y), (x2, y)])
+    for x, lst in vert.items():
+        for y1, y2 in merge_intervals(lst):
+            result.append([(x, y1), (x, y2)])
+    return result
