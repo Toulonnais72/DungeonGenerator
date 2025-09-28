@@ -147,50 +147,15 @@ def weighted_choice(rng: random.Random, weighted_items: Sequence[Tuple[str, floa
 def draw_background(surface: pygame.Surface, settings: DungeonSettings, rng: random.Random) -> None:
     width, height = surface.get_size()
 
-    # 1. Utilise directement le parchemin comme fond
+    # Remplir en blanc pour éviter la transparence
+    surface.fill((255, 255, 255))
+
     if settings.parchment_path and os.path.exists(settings.parchment_path):
         texture = pygame.image.load(settings.parchment_path).convert()
         texture = pygame.transform.smoothscale(texture, (width, height))
-        surface.blit(texture, (0, 0))  # ⚠️ pas de MULT → on garde la texture réelle
+        surface.blit(texture, (0, 0))  # blit direct, pas de MULT
     else:
         surface.fill(BACKGROUND_COLOR)
-
-    # 2. Ajoute un grain léger (MULT pour patiner)
-    grain_tile = pygame.Surface((128, 128), pygame.SRCALPHA)
-    for _ in range(200):
-        gx = rng.randrange(128)
-        gy = rng.randrange(128)
-        tint = rng.randint(-10, 10)
-        alpha = rng.randint(8, 18)
-        color = (
-            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
-            max(90, min(255, BACKGROUND_COLOR[1] + tint)),
-            max(80, min(255, BACKGROUND_COLOR[2] + tint)),
-            alpha,
-        )
-        grain_tile.set_at((gx, gy), color)
-    for y in range(0, height, 128):
-        for x in range(0, width, 128):
-            surface.blit(grain_tile, (x, y), special_flags=pygame.BLEND_RGBA_MULT)
-
-    # 3. Ajoute quelques taches diffuses
-    blot_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-    max_radius = int(max(width, height) * 0.18)
-    min_radius = max(settings.tilesize * 5, int(max_radius * 0.3))
-    for _ in range(10):
-        radius = rng.randint(min_radius, max_radius)
-        cx = rng.randint(-radius, width + radius)
-        cy = rng.randint(-radius, height + radius)
-        alpha = rng.randint(8, 18)
-        tint = rng.randint(-8, 8)
-        color = (
-            max(100, min(255, BACKGROUND_COLOR[0] + tint)),
-            max(90, min(255, BACKGROUND_COLOR[1] + tint)),
-            max(80, min(255, BACKGROUND_COLOR[2] + tint)),
-            alpha,
-        )
-        pygame.draw.circle(blot_surface, color, (cx, cy), radius)
-    surface.blit(blot_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
 
 def hatch_background(surface: pygame.Surface, settings: DungeonSettings) -> None:
@@ -838,7 +803,7 @@ def main() -> None:
         }
     )
 
-    parchment_path = "images/parchment.jpg" #if parchment_enabled else None
+    parchment_path = "images/parchment.jpg" if parchment_enabled else None
 
     settings = DungeonSettings(
         canvas_width=int(canvas_width),
