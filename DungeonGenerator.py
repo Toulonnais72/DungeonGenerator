@@ -13,15 +13,15 @@ import helpers as hp
 
 from symbols import SymbolLibrary
 
-# Couleurs mises à jour
-INK_BROWN = (50, 35, 20)  # brun très foncé
-ROOM_FILL = (238, 226, 204, 160)  # beige clair, alpha réduit
-GRID_COLOR = (180, 160, 120)
-ROOM_GRID_COLOR = (204, 182, 148)
-HATCH_COLOR = (168, 148, 118)
-BACKGROUND_COLOR = (236, 219, 191)
-VIGNETTE_COLOR = (150, 128, 100)
-CORRIDOR_FILL = (225, 215, 190, 140)  # beige clair, alpha réduit
+# Couleurs principales
+INK_BROWN      = (55, 40, 25)             # contours/murs foncés
+ROOM_FILL      = (235, 222, 200, 140)     # beige clair semi-transparent
+CORRIDOR_FILL  = (225, 212, 185, 120)     # beige clair semi-transparent
+GRID_COLOR     = (190, 170, 140)          # quadrillage discret ocre
+HATCH_COLOR    = (160, 140, 110)          # hachures papier
+BACKGROUND_COLOR = (236, 219, 191)        # ton de base si pas de parchemin
+VIGNETTE_COLOR   = (120, 90, 70)          # brun chaud pour vignette
+
 
 
 DOOR_LABELS = {
@@ -300,21 +300,19 @@ def draw_grid(surface: pygame.Surface, settings: DungeonSettings) -> None:
 def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int],
               settings: DungeonSettings, rng: random.Random) -> None:
     wall = wall_thickness(settings)
-    base_rect = rect.copy()
 
-    # Salle semi-transparente
+    # Surface temporaire avec alpha
     room_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-    pygame.draw.rect(room_surface, ROOM_FILL, room_surface.get_rect())
-    surface.blit(room_surface, rect.topleft)  # alpha-blend
+    pygame.draw.rect(room_surface, ROOM_FILL, room_surface.get_rect())  # ROOM_FILL avec alpha
+    surface.blit(room_surface, rect.topleft)
 
-    # Ombres / textures intérieures
-    inner = base_rect.inflate(-2 * wall, -2 * wall)
+    inner = rect.inflate(-2 * wall, -2 * wall)
     if inner.width > 0 and inner.height > 0:
-        apply_floor_shading(surface, inner, rng, intensity=0.6)
+        apply_floor_shading(surface, inner, rng, intensity=0.5)
         draw_room_grid(surface, inner, settings)
 
-    # Contour sombre
-    pygame.draw.rect(surface, INK_BROWN, base_rect, wall)
+    # Contours sombres
+    pygame.draw.rect(surface, INK_BROWN, rect, wall)
 
     # Numéro de salle
     if number is not None and inner.width > 0 and inner.height > 0:
@@ -323,46 +321,31 @@ def draw_room(surface: pygame.Surface, rect: pygame.Rect, number: Optional[int],
         surface.blit(img, (inner.centerx - img.get_width() // 2,
                            inner.centery - img.get_height() // 2))
 
-    wall = wall_thickness(settings)
-    base_rect = rect.copy()
-    pygame.draw.rect(surface, ROOM_FILL, base_rect)
-    inner = base_rect.inflate(-2 * wall, -2 * wall)
-    if inner.width <= 0 or inner.height <= 0:
-        inner = base_rect.inflate(-wall, -wall)
-    if inner.width <= 0 or inner.height <= 0:
-        inner = base_rect.copy()
-    apply_floor_shading(surface, inner, rng, intensity=0.6)
-    draw_room_grid(surface, inner, settings)
-    pygame.draw.rect(surface, ROOM_FILL, base_rect)  # semi-transparent
-    if number is not None and inner.width > 0 and inner.height > 0:
-        font = FONT_STORE.get(16, bold=False)
-        img = font.render(str(number), True, INK_BROWN)
-        surface.blit(img, (inner.centerx - img.get_width() // 2, inner.centery - img.get_height() // 2))
 
 
 def draw_corridor_rect(surface: pygame.Surface, rect: pygame.Rect,
                        settings: DungeonSettings, rng: random.Random) -> pygame.Rect:
     wall = max(2, wall_thickness(settings) - 2)
 
-    # Couloir semi-transparent
+    # Surface temporaire avec alpha
     corridor_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-    pygame.draw.rect(corridor_surface, CORRIDOR_FILL, corridor_surface.get_rect())
-    surface.blit(corridor_surface, rect.topleft)  # alpha-blend
+    pygame.draw.rect(corridor_surface, CORRIDOR_FILL, corridor_surface.get_rect())  # CORRIDOR_FILL avec alpha
+    surface.blit(corridor_surface, rect.topleft)
 
-    # Zone intérieure pour texture/shading
     inner = rect.inflate(-2 * wall, -2 * wall)
     if inner.width <= 0 or inner.height <= 0:
         inner = rect.inflate(-wall, -wall)
     if inner.width <= 0 or inner.height <= 0:
         inner = rect.copy()
 
-    apply_floor_shading(surface, inner, rng, intensity=0.45)
+    apply_floor_shading(surface, inner, rng, intensity=0.4)
     draw_room_grid(surface, inner, settings)
 
-    # Contour sombre
+    # Contours sombres
     pygame.draw.rect(surface, INK_BROWN, rect, wall)
 
     return inner
+
 
 
 
